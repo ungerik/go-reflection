@@ -106,7 +106,7 @@ type StructFieldValueName struct {
 func FlatStructFieldValueNames(val interface{}, nameTag string) []StructFieldValueName {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("StructFieldValueName expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+		panic(fmt.Errorf("FlatStructFieldValueNames expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldValueName, 0, numField)
