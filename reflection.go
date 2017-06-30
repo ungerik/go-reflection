@@ -3,10 +3,10 @@ package reflection
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 var (
-	TypeOfValue = reflect.TypeOf(reflect.Value{})
 	TypeOfError = reflect.TypeOf((*error)(nil)).Elem()
 )
 
@@ -93,28 +93,41 @@ func EnumFlatStructFields(val interface{}, callback func(reflect.StructField, re
 	}
 }
 
-type StructFieldTag struct {
+type StructFieldValueName struct {
 	reflect.StructField
-	Tag string
+	Value reflect.Value
+	Name  string
 }
 
-// FlatStructFieldTags returns a slice of StructFieldTag of flattened struct fields,
+// FlatStructFieldValueNames returns a slice of StructFieldValueName of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatStructFieldTags(val interface{}, tag string) []StructFieldTag {
+func FlatStructFieldValueNames(val interface{}, nameTag string) []StructFieldValueName {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("FlatStructFieldTags expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+		panic(fmt.Errorf("StructFieldValueName expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
-	fields := make([]StructFieldTag, 0, numField)
+	fields := make([]StructFieldValueName, 0, numField)
 	for i := 0; i < numField; i++ {
 		fieldType := t.Field(i)
+		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
-			fields = append(fields, FlatStructFieldTags(v.Field(i), tag)...)
+			fields = append(fields, FlatStructFieldValueNames(fieldValue, nameTag)...)
 		} else {
-			fields = append(fields, StructFieldTag{fieldType, fieldType.Tag.Get(tag)})
+			name := fieldType.Tag.Get(nameTag)
+			if name == "-" {
+				continue
+			}
+			if name == "" {
+				name = fieldType.Name
+			} else {
+				if pos := strings.IndexRune(name, ','); pos != -1 {
+					name = name[:pos]
+				}
+			}
+			fields = append(fields, StructFieldValueName{fieldType, fieldValue, name})
 		}
 	}
 	return fields
