@@ -45,7 +45,7 @@ func DerefValueAndType(val interface{}) (reflect.Value, reflect.Type) {
 }
 
 type StructFieldValue struct {
-	reflect.StructField
+	Field reflect.StructField
 	Value reflect.Value
 }
 
@@ -94,7 +94,7 @@ func EnumFlatStructFields(val interface{}, callback func(reflect.StructField, re
 }
 
 type StructFieldValueName struct {
-	reflect.StructField
+	Field reflect.StructField
 	Value reflect.Value
 	Name  string
 }
@@ -128,6 +128,44 @@ func FlatStructFieldValueNames(val interface{}, nameTag string) []StructFieldVal
 				}
 			}
 			fields = append(fields, StructFieldValueName{fieldType, fieldValue, name})
+		}
+	}
+	return fields
+}
+
+type StructFieldName struct {
+	Field reflect.StructField
+	Name  string
+}
+
+// FlatStructFieldNames returns a slice of StructFieldName of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+// The argument val can be a struct, a pointer to a struct, or a reflect.Value.
+func FlatStructFieldNames(t reflect.Type, nameTag string) []StructFieldName {
+	t = DerefType(t)
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("FlatStructFieldNames expects struct, pointer to or reflect.Value of a struct argument, but got: %s", t))
+	}
+	numField := t.NumField()
+	fields := make([]StructFieldName, 0, numField)
+	for i := 0; i < numField; i++ {
+		fieldType := t.Field(i)
+		if fieldType.Anonymous {
+			fields = append(fields, FlatStructFieldNames(fieldType.Type, nameTag)...)
+		} else {
+			name := fieldType.Tag.Get(nameTag)
+			if name == "-" {
+				continue
+			}
+			if name == "" {
+				name = fieldType.Name
+			} else {
+				if pos := strings.IndexRune(name, ','); pos != -1 {
+					name = name[:pos]
+				}
+			}
+			fields = append(fields, StructFieldName{fieldType, name})
 		}
 	}
 	return fields
