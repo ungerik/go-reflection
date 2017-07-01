@@ -49,14 +49,14 @@ type StructFieldValue struct {
 	Value reflect.Value
 }
 
-// FlatStructFields returns a slice of StructFieldValue of flattened struct fields,
+// FlatExportedStructFields returns a slice of StructFieldValue of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatStructFields(val interface{}) []StructFieldValue {
+func FlatExportedStructFields(val interface{}) []StructFieldValue {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("FlatStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+		panic(fmt.Errorf("FlatExportedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldValue, 0, numField)
@@ -64,33 +64,54 @@ func FlatStructFields(val interface{}) []StructFieldValue {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
-			fields = append(fields, FlatStructFields(fieldValue)...)
+			fields = append(fields, FlatExportedStructFields(fieldValue)...)
 		} else {
-			fields = append(fields, StructFieldValue{fieldType, fieldValue})
+			if fieldType.PkgPath == "" {
+				fields = append(fields, StructFieldValue{fieldType, fieldValue})
+			}
 		}
 	}
 	return fields
 }
 
-// FlatStructFields returns reflect.StructField and reflect.Value of flattened struct fields,
+// EnumFlatExportedStructFields returns reflect.StructField and reflect.Value of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func EnumFlatStructFields(val interface{}, callback func(reflect.StructField, reflect.Value)) {
+func EnumFlatExportedStructFields(val interface{}, callback func(reflect.StructField, reflect.Value)) {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("EnumFlatStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+		panic(fmt.Errorf("EnumFlatExportedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
 	for i := 0; i < numField; i++ {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
-			EnumFlatStructFields(fieldValue, callback)
+			EnumFlatExportedStructFields(fieldValue, callback)
 		} else {
-			callback(fieldType, fieldValue)
+			if fieldType.PkgPath == "" {
+				callback(fieldType, fieldValue)
+			}
 		}
 	}
+}
+
+func exportedFieldName(field reflect.StructField, nameTag string) (name string, valid bool) {
+	if field.PkgPath != "" {
+		return "", false
+	}
+	name, ok := field.Tag.Lookup(nameTag)
+	if !ok {
+		return field.Name, true
+	}
+	if pos := strings.IndexRune(name, ','); pos != -1 {
+		name = name[:pos]
+	}
+	if name == "-" {
+		return "", false
+	}
+	return name, true
 }
 
 type StructFieldValueName struct {
@@ -99,14 +120,14 @@ type StructFieldValueName struct {
 	Name  string
 }
 
-// FlatStructFieldValueNames returns a slice of StructFieldValueName of flattened struct fields,
+// FlatExportedStructFieldValueNames returns a slice of StructFieldValueName of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatStructFieldValueNames(val interface{}, nameTag string) []StructFieldValueName {
+func FlatExportedStructFieldValueNames(val interface{}, nameTag string) []StructFieldValueName {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("FlatStructFieldValueNames expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+		panic(fmt.Errorf("FlatExportedStructFieldValueNames expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldValueName, 0, numField)
@@ -114,20 +135,11 @@ func FlatStructFieldValueNames(val interface{}, nameTag string) []StructFieldVal
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
-			fields = append(fields, FlatStructFieldValueNames(fieldValue, nameTag)...)
+			fields = append(fields, FlatExportedStructFieldValueNames(fieldValue, nameTag)...)
 		} else {
-			name := fieldType.Tag.Get(nameTag)
-			if name == "-" {
-				continue
+			if name, valid := exportedFieldName(fieldType, nameTag); valid {
+				fields = append(fields, StructFieldValueName{fieldType, fieldValue, name})
 			}
-			if name == "" {
-				name = fieldType.Name
-			} else {
-				if pos := strings.IndexRune(name, ','); pos != -1 {
-					name = name[:pos]
-				}
-			}
-			fields = append(fields, StructFieldValueName{fieldType, fieldValue, name})
 		}
 	}
 	return fields
@@ -138,34 +150,25 @@ type StructFieldName struct {
 	Name  string
 }
 
-// FlatStructFieldNames returns a slice of StructFieldName of flattened struct fields,
+// FlatExportedStructFieldNames returns a slice of StructFieldName of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatStructFieldNames(t reflect.Type, nameTag string) []StructFieldName {
+func FlatExportedStructFieldNames(t reflect.Type, nameTag string) []StructFieldName {
 	t = DerefType(t)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("FlatStructFieldNames expects struct, pointer to or reflect.Value of a struct argument, but got: %s", t))
+		panic(fmt.Errorf("FlatExportedStructFieldNames expects struct, pointer to or reflect.Value of a struct argument, but got: %s", t))
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldName, 0, numField)
 	for i := 0; i < numField; i++ {
-		fieldType := t.Field(i)
-		if fieldType.Anonymous {
-			fields = append(fields, FlatStructFieldNames(fieldType.Type, nameTag)...)
+		field := t.Field(i)
+		if field.Anonymous {
+			fields = append(fields, FlatExportedStructFieldNames(field.Type, nameTag)...)
 		} else {
-			name := fieldType.Tag.Get(nameTag)
-			if name == "-" {
-				continue
+			if name, valid := exportedFieldName(field, nameTag); valid {
+				fields = append(fields, StructFieldName{field, name})
 			}
-			if name == "" {
-				name = fieldType.Name
-			} else {
-				if pos := strings.IndexRune(name, ','); pos != -1 {
-					name = name[:pos]
-				}
-			}
-			fields = append(fields, StructFieldName{fieldType, name})
 		}
 	}
 	return fields
