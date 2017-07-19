@@ -6,9 +6,7 @@ import (
 	"strings"
 )
 
-var (
-	TypeOfError = reflect.TypeOf((*error)(nil)).Elem()
-)
+var TypeOfError = reflect.TypeOf((*error)(nil)).Elem()
 
 // ValueOf differs from reflect.ValueOf in that it returns the argument val
 // casted to reflect.Value if val is alread a reflect.Value.
@@ -172,4 +170,14 @@ func FlatExportedStructFieldNames(t reflect.Type, nameTag string) []StructFieldN
 		}
 	}
 	return fields
+}
+
+// ValuesToInterfaces returns a slice of interface{}
+// by calling reflect.Value.Interfac() for all values.
+func ValuesToInterfaces(values ...reflect.Value) []interface{} {
+	s := make([]interface{}, len(values))
+	for i := range values {
+		s[i] = values[i].Interface()
+	}
+	return s
 }
