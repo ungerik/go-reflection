@@ -42,6 +42,20 @@ func DerefValueAndType(val interface{}) (reflect.Value, reflect.Type) {
 	return v, v.Type()
 }
 
+// IsNil returns if val is of a type that can be nil and if it is nil.
+// Unlike reflect.Value.IsNil() it is safe to call this function for any value and type.
+func IsNil(val interface{}) bool {
+	if val == nil {
+		return true
+	}
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Interface, reflect.Slice:
+		return v.IsNil()
+	}
+	return false
+}
+
 type StructFieldValue struct {
 	Field reflect.StructField
 	Value reflect.Value
