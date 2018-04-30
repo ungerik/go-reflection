@@ -19,9 +19,10 @@ func ValueOf(val interface{}) reflect.Value {
 	return reflect.ValueOf(val)
 }
 
+// DerefValue dereferences val until a non pointer type or nil is found
 func DerefValue(val interface{}) reflect.Value {
 	v := ValueOf(val)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Ptr && !v.IsNil() {
 		v = v.Elem()
 	}
 	return v
@@ -36,7 +37,7 @@ func DerefType(t reflect.Type) reflect.Type {
 
 func DerefValueAndType(val interface{}) (reflect.Value, reflect.Type) {
 	v := ValueOf(val)
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Ptr && !v.IsNil() {
 		v = v.Elem()
 	}
 	return v, v.Type()
@@ -155,6 +156,35 @@ func FlatExportedStructFieldValueNames(val interface{}, nameTag string) []Struct
 		}
 	}
 	return fields
+}
+
+// FlatExportedStructFieldValueNameMap returns a slice of StructFieldValueName of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+// The argument val can be a struct, a pointer to a struct, or a reflect.Value.
+func FlatExportedStructFieldValueNameMap(val interface{}, nameTag string) map[string]StructFieldValueName {
+	fields := make(map[string]StructFieldValueName)
+	flatExportedStructFieldValueNameMap(val, nameTag, fields)
+	return fields
+}
+
+func flatExportedStructFieldValueNameMap(val interface{}, nameTag string, fields map[string]StructFieldValueName) {
+	v, t := DerefValueAndType(val)
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("FlatExportedStructFieldValueNameMap expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
+	}
+	numField := t.NumField()
+	for i := 0; i < numField; i++ {
+		fieldType := t.Field(i)
+		fieldValue := v.Field(i)
+		if fieldType.Anonymous {
+			flatExportedStructFieldValueNameMap(fieldValue, nameTag, fields)
+		} else {
+			if name, valid := exportedFieldName(fieldType, nameTag); valid {
+				fields[name] = StructFieldValueName{fieldType, fieldValue, name}
+			}
+		}
+	}
 }
 
 type StructFieldName struct {
