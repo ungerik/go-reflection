@@ -106,6 +106,7 @@ func EnumFlatExportedStructFields(val interface{}, callback func(reflect.StructF
 	}
 }
 
+// nameTag can be empty
 func exportedFieldName(field reflect.StructField, nameTag string) (name string, valid bool) {
 	if field.PkgPath != "" {
 		return "", false
