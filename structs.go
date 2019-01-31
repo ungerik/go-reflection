@@ -6,51 +6,103 @@ import (
 	"strings"
 )
 
-var TypeOfError = reflect.TypeOf((*error)(nil)).Elem()
-
-// ValueOf differs from reflect.ValueOf in that it returns the argument val
-// casted to reflect.Value if val is alread a reflect.Value.
-// Else the standard result of reflect.ValueOf(val) will be returned.
-func ValueOf(val interface{}) reflect.Value {
-	v, ok := val.(reflect.Value)
-	if ok {
-		return v
+// FlatStructFieldCount returns the number of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+func FlatStructFieldCount(t reflect.Type) int {
+	t = DerefType(t)
+	count := 0
+	numField := t.NumField()
+	for i := 0; i < numField; i++ {
+		f := t.Field(i)
+		if f.Anonymous {
+			count += FlatStructFieldCount(f.Type)
+		} else {
+			count++
+		}
 	}
-	return reflect.ValueOf(val)
+	return count
 }
 
-// DerefValue dereferences val until a non pointer type or nil is found
-func DerefValue(val interface{}) reflect.Value {
-	v := ValueOf(val)
-	for v.Kind() == reflect.Ptr && !v.IsNil() {
-		v = v.Elem()
+// FlatStructFieldNames returns the names of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+func FlatStructFieldNames(t reflect.Type) (names []string) {
+	t = DerefType(t)
+	numField := t.NumField()
+	names = make([]string, 0, numField)
+	for i := 0; i < numField; i++ {
+		f := t.Field(i)
+		if f.Anonymous {
+			names = append(names, FlatStructFieldNames(f.Type)...)
+		} else {
+			names = append(names, f.Name)
+		}
 	}
-	return v
+	return names
 }
 
-func DerefType(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+// FlatStructFieldTags returns the tag values for a tagKey of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+// An empty string is returned for fields that don't have a matching tag.
+func FlatStructFieldTags(t reflect.Type, tagKey string) (tagValues []string) {
+	t = DerefType(t)
+	numField := t.NumField()
+	tagValues = make([]string, 0, numField)
+	for i := 0; i < numField; i++ {
+		f := t.Field(i)
+		if f.Anonymous {
+			tagValues = append(tagValues, FlatStructFieldNames(f.Type)...)
+		} else {
+			tagValues = append(tagValues, f.Tag.Get(tagKey))
+		}
 	}
-	return t
+	return tagValues
 }
 
-func DerefValueAndType(val interface{}) (reflect.Value, reflect.Type) {
-	v := ValueOf(val)
-	for v.Kind() == reflect.Ptr && !v.IsNil() {
-		v = v.Elem()
+// FlatStructFieldTagsOrNames returns the tag values for tagKey or the names of the field
+// if no tag with tagKey is defined at a struct field.
+// Fields are flattened,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+func FlatStructFieldTagsOrNames(t reflect.Type, tagKey string) (tagsOrNames []string) {
+	t = DerefType(t)
+	numField := t.NumField()
+	tagsOrNames = make([]string, 0, numField)
+	for i := 0; i < numField; i++ {
+		f := t.Field(i)
+		if f.Anonymous {
+			tagsOrNames = append(tagsOrNames, FlatStructFieldNames(f.Type)...)
+		} else {
+			tagOrName := f.Tag.Get(tagKey)
+			if tagOrName == "" {
+				tagOrName = f.Name
+			}
+			tagsOrNames = append(tagsOrNames, tagOrName)
+		}
 	}
-	return v, v.Type()
+	return tagsOrNames
 }
 
-// IsNil returns if val is of a type that can be nil and if it is nil.
-// Unlike reflect.Value.IsNil() it is safe to call this function for any value and type.
-func IsNil(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Interface, reflect.Slice:
-		return v.IsNil()
+// FlatStructFieldValues returns the values of flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+func FlatStructFieldValues(v reflect.Value) (values []reflect.Value) {
+	v = DerefValue(v)
+	t := v.Type()
+	numField := t.NumField()
+	values = make([]reflect.Value, 0, numField)
+	for i := 0; i < numField; i++ {
+		ft := t.Field(i)
+		fv := v.Field(i)
+		if ft.Anonymous {
+			values = append(values, FlatStructFieldValues(fv)...)
+		} else {
+			values = append(values, fv)
+		}
 	}
-	return false
+	return values
 }
 
 type StructFieldValue struct {
@@ -184,140 +236,31 @@ func flatExportedStructFieldValueNameMap(val interface{}, nameTag string, fields
 	}
 }
 
-type StructFieldName struct {
+type NamedStructField struct {
 	Field reflect.StructField
 	Name  string
 }
 
-// FlatExportedStructFieldNames returns a slice of StructFieldName of flattened struct fields,
+// FlatExportedNamedStructFields returns a slice of NamedStructField of flattened struct fields,
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
-// The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatExportedStructFieldNames(t reflect.Type, nameTag string) []StructFieldName {
+// The argument t can be a struct, a pointer to a struct, or a reflect.Value.
+func FlatExportedNamedStructFields(t reflect.Type, nameTag string) []NamedStructField {
 	t = DerefType(t)
 	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("FlatExportedStructFieldNames expects struct, pointer to or reflect.Value of a struct argument, but got: %s", t))
+		panic(fmt.Errorf("FlatExportedNamedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %s", t))
 	}
 	numField := t.NumField()
-	fields := make([]StructFieldName, 0, numField)
+	fields := make([]NamedStructField, 0, numField)
 	for i := 0; i < numField; i++ {
 		field := t.Field(i)
 		if field.Anonymous {
-			fields = append(fields, FlatExportedStructFieldNames(field.Type, nameTag)...)
+			fields = append(fields, FlatExportedNamedStructFields(field.Type, nameTag)...)
 		} else {
 			if name, valid := exportedFieldName(field, nameTag); valid {
-				fields = append(fields, StructFieldName{field, name})
+				fields = append(fields, NamedStructField{field, name})
 			}
 		}
 	}
 	return fields
-}
-
-// ValuesToInterfaces returns a slice of interface{}
-// by calling reflect.Value.Interfac() for all values.
-func ValuesToInterfaces(values ...reflect.Value) []interface{} {
-	s := make([]interface{}, len(values))
-	for i := range values {
-		s[i] = values[i].Interface()
-	}
-	return s
-}
-
-// FlatStructFieldCount returns the number of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
-func FlatStructFieldCount(t reflect.Type) int {
-	t = DerefType(t)
-	count := 0
-	numField := t.NumField()
-	for i := 0; i < numField; i++ {
-		f := t.Field(i)
-		if f.Anonymous {
-			count += FlatStructFieldCount(f.Type)
-		} else {
-			count++
-		}
-	}
-	return count
-}
-
-// FlatStructFieldNames returns the names of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
-func FlatStructFieldNames(t reflect.Type) (names []string) {
-	t = DerefType(t)
-	numField := t.NumField()
-	names = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
-		f := t.Field(i)
-		if f.Anonymous {
-			names = append(names, FlatStructFieldNames(f.Type)...)
-		} else {
-			names = append(names, f.Name)
-		}
-	}
-	return names
-}
-
-// FlatStructFieldTags returns the tag values for a tagKey of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
-// An empty string is returned for fields that don't have a matching tag.
-func FlatStructFieldTags(t reflect.Type, tagKey string) (tagValues []string) {
-	t = DerefType(t)
-	numField := t.NumField()
-	tagValues = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
-		f := t.Field(i)
-		if f.Anonymous {
-			tagValues = append(tagValues, FlatStructFieldNames(f.Type)...)
-		} else {
-			tagValues = append(tagValues, f.Tag.Get(tagKey))
-		}
-	}
-	return tagValues
-}
-
-// FlatStructFieldTagsOrNames returns the tag values for tagKey or the names of the field
-// if no tag with tagKey is defined at a struct field.
-// Fields are flattened,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
-func FlatStructFieldTagsOrNames(t reflect.Type, tagKey string) (tagsOrNames []string) {
-	t = DerefType(t)
-	numField := t.NumField()
-	tagsOrNames = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
-		f := t.Field(i)
-		if f.Anonymous {
-			tagsOrNames = append(tagsOrNames, FlatStructFieldNames(f.Type)...)
-		} else {
-			tagOrName := f.Tag.Get(tagKey)
-			if tagOrName == "" {
-				tagOrName = f.Name
-			}
-			tagsOrNames = append(tagsOrNames, tagOrName)
-		}
-	}
-	return tagsOrNames
-}
-
-// FlatStructFieldValues returns the values of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
-func FlatStructFieldValues(v reflect.Value) (values []reflect.Value) {
-	v = DerefValue(v)
-	t := v.Type()
-	numField := t.NumField()
-	values = make([]reflect.Value, 0, numField)
-	for i := 0; i < numField; i++ {
-		ft := t.Field(i)
-		fv := v.Field(i)
-		if ft.Anonymous {
-			values = append(values, FlatStructFieldValues(fv)...)
-		} else {
-			values = append(values, fv)
-		}
-	}
-	return values
 }
