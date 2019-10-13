@@ -39,7 +39,12 @@ func DerefValueAndType(val interface{}) (reflect.Value, reflect.Type) {
 
 // IsNil returns if val is of a type that can be nil and if it is nil.
 // Unlike reflect.Value.IsNil() it is safe to call this function for any value and type.
+// The zero value of reflect.Value will yield true
+// because it can be the result of reflect.ValueOf(nil)
 func IsNil(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Interface, reflect.Slice:
 		return v.IsNil()
