@@ -126,10 +126,8 @@ func FlatExportedStructFields(val interface{}) []StructFieldValue {
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
 			fields = append(fields, FlatExportedStructFields(fieldValue)...)
-		} else {
-			if fieldType.PkgPath == "" {
-				fields = append(fields, StructFieldValue{fieldType, fieldValue})
-			}
+		} else if fieldType.IsExported() {
+			fields = append(fields, StructFieldValue{fieldType, fieldValue})
 		}
 	}
 	return fields
@@ -150,17 +148,15 @@ func EnumFlatExportedStructFields(val interface{}, callback func(reflect.StructF
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
 			EnumFlatExportedStructFields(fieldValue, callback)
-		} else {
-			if fieldType.PkgPath == "" {
-				callback(fieldType, fieldValue)
-			}
+		} else if fieldType.IsExported() {
+			callback(fieldType, fieldValue)
 		}
 	}
 }
 
 // nameTag can be empty
 func exportedFieldName(field reflect.StructField, nameTag string) (name string, valid bool) {
-	if field.PkgPath != "" {
+	if !field.IsExported() {
 		return "", false
 	}
 	name, ok := field.Tag.Lookup(nameTag)

@@ -26,8 +26,8 @@ func ZeroValueExportedStructFieldNames(st interface{}, namePrefix, nameTag strin
 	}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if field.PkgPath != "" {
-			continue // not exported
+		if !field.IsExported() {
+			continue
 		}
 		fieldName, ext := getFieldName(field, namePrefix, nameTag)
 		if ignoreField(namesToValidate, fieldName, ext) {
@@ -138,8 +138,8 @@ func ValidateStructFields(validateFunc func(interface{}) error, st interface{}, 
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if field.PkgPath != "" {
-			continue // not exported
+		if !field.IsExported() {
+			continue
 		}
 		fieldName, ext := getFieldName(field, namePrefix, nameTag)
 		if ignoreField(namesToValidate, fieldName, ext) {
