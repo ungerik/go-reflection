@@ -8,7 +8,7 @@ import (
 
 // IsZero returns if underlying value of v is the zero (default) value of its type,
 // or if v itself is nil.
-func IsZero(v interface{}) bool {
+func IsZero(v any) bool {
 	return v == nil || reflect.DeepEqual(v, reflect.Zero(reflect.TypeOf(v)).Interface())
 }
 
@@ -19,7 +19,7 @@ func IsZero(v interface{}) bool {
 // Anonymous sub structs will be flattened, named sub structs are checked recursively with their
 // name used as prefix delimited with a point.
 // Zero array and slice fields will be added with thair name and index formated as "%s[%d]".
-func ZeroValueExportedStructFieldNames(st interface{}, namePrefix, nameTag string, namesToValidate ...string) (zeroNames []string) {
+func ZeroValueExportedStructFieldNames(st any, namePrefix, nameTag string, namesToValidate ...string) (zeroNames []string) {
 	v, t := DerefValueAndType(st)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("%T is not a struct or pointer to a struct", st))
@@ -106,7 +106,7 @@ func ignoreField(namesToValidate []string, name, _ string) bool {
 	return true
 }
 
-func validate(validateFunc func(interface{}) error, v reflect.Value) error {
+func validate(validateFunc func(any) error, v reflect.Value) error {
 	err := validateFunc(v.Interface())
 	if err == nil {
 		if v.CanAddr() {
@@ -130,7 +130,7 @@ func (f FieldError) Error() string {
 	return f.FieldName + ": " + f.FieldError.Error()
 }
 
-func ValidateStructFields(validateFunc func(interface{}) error, st interface{}, namePrefix, nameTag string, namesToValidate ...string) (fieldErrors []FieldError) {
+func ValidateStructFields(validateFunc func(any) error, st any, namePrefix, nameTag string, namesToValidate ...string) (fieldErrors []FieldError) {
 	v, t := DerefValueAndType(st)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("%T is not a struct or pointer to a struct", st))

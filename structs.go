@@ -114,7 +114,7 @@ type StructFieldValue struct {
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatExportedStructFields(val interface{}) []StructFieldValue {
+func FlatExportedStructFields(val any) []StructFieldValue {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("FlatExportedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
@@ -137,7 +137,7 @@ func FlatExportedStructFields(val interface{}) []StructFieldValue {
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func EnumFlatExportedStructFields(val interface{}, callback func(reflect.StructField, reflect.Value)) {
+func EnumFlatExportedStructFields(val any, callback func(reflect.StructField, reflect.Value)) {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("EnumFlatExportedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
@@ -182,7 +182,7 @@ type StructFieldValueName struct {
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatExportedStructFieldValueNames(val interface{}, nameTag string) []StructFieldValueName {
+func FlatExportedStructFieldValueNames(val any, nameTag string) []StructFieldValueName {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("FlatExportedStructFieldValueNames expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
@@ -207,13 +207,13 @@ func FlatExportedStructFieldValueNames(val interface{}, nameTag string) []Struct
 // meaning that the fields of anonoymous embedded fields are flattened
 // to the top level of the struct.
 // The argument val can be a struct, a pointer to a struct, or a reflect.Value.
-func FlatExportedStructFieldValueNameMap(val interface{}, nameTag string) map[string]StructFieldValueName {
+func FlatExportedStructFieldValueNameMap(val any, nameTag string) map[string]StructFieldValueName {
 	fields := make(map[string]StructFieldValueName)
 	flatExportedStructFieldValueNameMap(val, nameTag, fields)
 	return fields
 }
 
-func flatExportedStructFieldValueNameMap(val interface{}, nameTag string, fields map[string]StructFieldValueName) {
+func flatExportedStructFieldValueNameMap(val any, nameTag string, fields map[string]StructFieldValueName) {
 	v, t := DerefValueAndType(val)
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("FlatExportedStructFieldValueNameMap expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
