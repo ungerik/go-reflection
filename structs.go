@@ -2,6 +2,7 @@ package reflection
 
 import (
 	"fmt"
+	"iter"
 	"reflect"
 	"strings"
 )
@@ -142,14 +143,41 @@ func EnumFlatExportedStructFields(val any, callback func(reflect.StructField, re
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Errorf("EnumFlatExportedStructFields expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
-	numField := t.NumField()
-	for i := 0; i < numField; i++ {
+	for i := range t.NumField() {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
 			EnumFlatExportedStructFields(fieldValue, callback)
 		} else if fieldType.IsExported() {
 			callback(fieldType, fieldValue)
+		}
+	}
+}
+
+// FlatExportedStructFieldsIter returns an iterator over flattened struct fields,
+// meaning that the fields of anonoymous embedded fields are flattened
+// to the top level of the struct.
+// The argument s can be a struct, a pointer to a struct, or a reflect.Value.
+func FlatExportedStructFieldsIter(s any) iter.Seq2[reflect.StructField, reflect.Value] {
+	v, t := DerefValueAndType(s)
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("FlatExportedStructFieldsIter expects struct or pointer to or reflect.Value of a struct argument, but got: %T", s))
+	}
+	return func(yield func(reflect.StructField, reflect.Value) bool) {
+		for i := range t.NumField() {
+			field, val := t.Field(i), v.Field(i)
+			switch {
+			case field.Anonymous:
+				for fieldA, valA := range FlatExportedStructFieldsIter(val) {
+					if !yield(fieldA, valA) {
+						return
+					}
+				}
+			case field.IsExported():
+				if !yield(field, val) {
+					return
+				}
+			}
 		}
 	}
 }
