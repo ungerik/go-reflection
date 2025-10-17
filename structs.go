@@ -7,9 +7,22 @@ import (
 	"strings"
 )
 
-// FlatStructFieldCount returns the number of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
+// FlatStructFieldCount returns the number of flattened struct fields.
+// Anonymous embedded fields are flattened, meaning their fields are counted
+// as top-level fields of the struct.
+//
+// Example:
+//
+//	type Base struct {
+//	    ID   int
+//	    Name string
+//	}
+//	type Extended struct {
+//	    Base  // Anonymous field - will be flattened
+//	    Email string
+//	}
+//	count := reflection.FlatStructFieldCount(reflect.TypeOf(Extended{}))
+//	fmt.Println(count) // 3 (ID, Name, Email)
 func FlatStructFieldCount(t reflect.Type) int {
 	t = DerefType(t)
 	count := 0
@@ -25,9 +38,22 @@ func FlatStructFieldCount(t reflect.Type) int {
 	return count
 }
 
-// FlatStructFieldNames returns the names of flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
+// FlatStructFieldNames returns the names of flattened struct fields.
+// Anonymous embedded fields are flattened, meaning their field names appear
+// at the top level alongside non-embedded fields.
+//
+// Example:
+//
+//	type Address struct {
+//	    Street string
+//	    City   string
+//	}
+//	type Person struct {
+//	    Name    string
+//	    Address // Anonymous field
+//	}
+//	names := reflection.FlatStructFieldNames(reflect.TypeOf(Person{}))
+//	fmt.Println(names) // [Name Street City]
 func FlatStructFieldNames(t reflect.Type) (names []string) {
 	t = DerefType(t)
 	numField := t.NumField()
@@ -106,9 +132,26 @@ func FlatStructFieldValues(v reflect.Value) (values []reflect.Value) {
 	return values
 }
 
+// StructFieldValue combines a struct field's type information with its runtime value.
+// This is useful for operations that need both the field metadata and its actual value.
+//
+// Example:
+//
+//	type User struct {
+//	    Name string
+//	    Age  int
+//	}
+//	user := User{Name: "Alice", Age: 30}
+//	fields := reflection.FlatExportedStructFields(user)
+//	for _, field := range fields {
+//	    fmt.Printf("%s (%s) = %v\n", field.Field.Name, field.Field.Type, field.Value.Interface())
+//	}
+//	// Output:
+//	// Name (string) = Alice
+//	// Age (int) = 30
 type StructFieldValue struct {
-	Field reflect.StructField
-	Value reflect.Value
+	Field reflect.StructField // Type information about the field
+	Value reflect.Value       // Runtime value of the field
 }
 
 // FlatExportedStructFields returns a slice of StructFieldValue of flattened struct fields,
@@ -154,10 +197,27 @@ func EnumFlatExportedStructFields(val any, callback func(reflect.StructField, re
 	}
 }
 
-// FlatExportedStructFieldsIter returns an iterator over flattened struct fields,
-// meaning that the fields of anonoymous embedded fields are flattened
-// to the top level of the struct.
+// FlatExportedStructFieldsIter returns an iterator over flattened exported struct fields.
+// Anonymous embedded fields are flattened to the top level.
+//
+// This is the most memory-efficient way to iterate over struct fields,
+// as it doesn't allocate a slice. Requires Go 1.23+.
+//
 // The argument s can be a struct, a pointer to a struct, or a reflect.Value.
+//
+// Example:
+//
+//	type User struct {
+//	    Name  string
+//	    Email string
+//	}
+//	user := User{Name: "Bob", Email: "bob@example.com"}
+//	for field, value := range reflection.FlatExportedStructFieldsIter(user) {
+//	    fmt.Printf("%s = %v\n", field.Name, value.Interface())
+//	}
+//	// Output:
+//	// Name = Bob
+//	// Email = bob@example.com
 func FlatExportedStructFieldsIter(s any) iter.Seq2[reflect.StructField, reflect.Value] {
 	v, t := DerefValueAndType(s)
 	if t.Kind() != reflect.Struct {
@@ -200,10 +260,29 @@ func exportedFieldName(field reflect.StructField, nameTag string) (name string, 
 	return name, true
 }
 
+// StructFieldValueName combines field type information, runtime value, and a custom name.
+// The Name is typically derived from a struct tag (e.g., json, db, xml tags).
+//
+// Example:
+//
+//	type Product struct {
+//	    ID    int    `db:"product_id"`
+//	    Name  string `db:"product_name"`
+//	    Price float64 `db:"price"`
+//	}
+//	product := Product{ID: 1, Name: "Widget", Price: 9.99}
+//	fields := reflection.FlatExportedStructFieldValueNames(product, "db")
+//	for _, field := range fields {
+//	    fmt.Printf("%s = %v\n", field.Name, field.Value.Interface())
+//	}
+//	// Output:
+//	// product_id = 1
+//	// product_name = Widget
+//	// price = 9.99
 type StructFieldValueName struct {
-	Field reflect.StructField
-	Value reflect.Value
-	Name  string
+	Field reflect.StructField // Type information about the field
+	Value reflect.Value       // Runtime value of the field
+	Name  string              // Custom name from struct tag or field name
 }
 
 // FlatExportedStructFieldValueNames returns a slice of StructFieldValueName of flattened struct fields,
@@ -260,9 +339,26 @@ func flatExportedStructFieldValueNameMap(val any, nameTag string, fields map[str
 	}
 }
 
+// NamedStructField combines field type information with a custom name.
+// Unlike StructFieldValueName, this doesn't include the runtime value,
+// making it suitable for type-level operations.
+//
+// Example:
+//
+//	type Config struct {
+//	    Host string `json:"host"`
+//	    Port int    `json:"port"`
+//	}
+//	fields := reflection.FlatExportedNamedStructFields(reflect.TypeOf(Config{}), "json")
+//	for _, field := range fields {
+//	    fmt.Printf("%s: %s\n", field.Name, field.Field.Type)
+//	}
+//	// Output:
+//	// host: string
+//	// port: int
 type NamedStructField struct {
-	Field reflect.StructField
-	Name  string
+	Field reflect.StructField // Type information about the field
+	Name  string              // Custom name from struct tag or field name
 }
 
 // FlatExportedNamedStructFields returns a slice of NamedStructField of flattened struct fields,
