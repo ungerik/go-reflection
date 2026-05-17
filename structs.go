@@ -27,7 +27,7 @@ func FlatStructFieldCount(t reflect.Type) int {
 	t = DerefType(t)
 	count := 0
 	numField := t.NumField()
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		f := t.Field(i)
 		if f.Anonymous {
 			count += FlatStructFieldCount(f.Type)
@@ -58,7 +58,7 @@ func FlatStructFieldNames(t reflect.Type) (names []string) {
 	t = DerefType(t)
 	numField := t.NumField()
 	names = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		f := t.Field(i)
 		if f.Anonymous {
 			names = append(names, FlatStructFieldNames(f.Type)...)
@@ -77,7 +77,7 @@ func FlatStructFieldTags(t reflect.Type, tagKey string) (tagValues []string) {
 	t = DerefType(t)
 	numField := t.NumField()
 	tagValues = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		f := t.Field(i)
 		if f.Anonymous {
 			tagValues = append(tagValues, FlatStructFieldNames(f.Type)...)
@@ -97,7 +97,7 @@ func FlatStructFieldTagsOrNames(t reflect.Type, tagKey string) (tagsOrNames []st
 	t = DerefType(t)
 	numField := t.NumField()
 	tagsOrNames = make([]string, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		f := t.Field(i)
 		if f.Anonymous {
 			tagsOrNames = append(tagsOrNames, FlatStructFieldNames(f.Type)...)
@@ -120,7 +120,7 @@ func FlatStructFieldValues(v reflect.Value) (values []reflect.Value) {
 	t := v.Type()
 	numField := t.NumField()
 	values = make([]reflect.Value, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		ft := t.Field(i)
 		fv := v.Field(i)
 		if ft.Anonymous {
@@ -165,7 +165,7 @@ func FlatExportedStructFields(val any) []StructFieldValue {
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldValue, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
@@ -296,7 +296,7 @@ func FlatExportedStructFieldValueNames(val any, nameTag string) []StructFieldVal
 	}
 	numField := t.NumField()
 	fields := make([]StructFieldValueName, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
@@ -326,7 +326,7 @@ func flatExportedStructFieldValueNameMap(val any, nameTag string, fields map[str
 		panic(fmt.Errorf("FlatExportedStructFieldValueNameMap expects struct, pointer to or reflect.Value of a struct argument, but got: %T", val))
 	}
 	numField := t.NumField()
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		fieldType := t.Field(i)
 		fieldValue := v.Field(i)
 		if fieldType.Anonymous {
@@ -372,7 +372,7 @@ func FlatExportedNamedStructFields(t reflect.Type, nameTag string) []NamedStruct
 	}
 	numField := t.NumField()
 	fields := make([]NamedStructField, 0, numField)
-	for i := 0; i < numField; i++ {
+	for i := range numField {
 		field := t.Field(i)
 		if field.Anonymous {
 			fields = append(fields, FlatExportedNamedStructFields(field.Type, nameTag)...)

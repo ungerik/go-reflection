@@ -3,6 +3,7 @@ package reflection
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -129,10 +130,8 @@ func ignoreField(namesToValidate []string, name, _ string) bool {
 	if len(namesToValidate) == 0 {
 		return strings.Contains(name, "-")
 	}
-	for _, n := range namesToValidate {
-		if n == name {
-			return strings.Contains(name, "-")
-		}
+	if slices.Contains(namesToValidate, name) {
+		return strings.Contains(name, "-")
 	}
 	return true
 }

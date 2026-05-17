@@ -42,9 +42,9 @@ var (
 	//	func returnsError(fn reflect.Type) bool {
 	//	    return fn.NumOut() > 0 && fn.Out(0) == reflection.TypeOfError
 	//	}
-	TypeOfError = reflect.TypeOf((*error)(nil)).Elem()
+	TypeOfError = reflect.TypeFor[error]()
 
 	// TypeOfEmptyInterface is the reflect.Type of the empty interface (any).
 	// Useful for type comparisons when working with generic interfaces.
-	TypeOfEmptyInterface = reflect.TypeOf((*interface{})(nil)).Elem()
+	TypeOfEmptyInterface = reflect.TypeFor[any]()
 )
